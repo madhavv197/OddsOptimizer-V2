@@ -1,0 +1,13 @@
+# config.yaml
+
+leagues:
+  epl: "https://sport.toto.nl/wedden/sport/567/engeland-premier-league/wedstrijden"
+
+
+settings:
+  ev_threshold: 0.1
+  beta: 2
+  initial_bankroll: 100
+  weekly_exposure: 0.2
+  strategy: "EV1R20B2W"
+  simulate_only: false
