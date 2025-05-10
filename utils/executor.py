@@ -5,6 +5,9 @@ import time
 import random as rand
 import pandas as pd
 from utils.dataloader import DataLoader
+from dotenv import load_dotenv
+import os
+from datetime import datetime
 
 class Executor:
     def __init__(self, data_dir: str, config_path: str) -> None:
@@ -13,9 +16,14 @@ class Executor:
         self.browser_mgr = self.data_loader.browser_mgr
         self.session_file = self.data_loader.session_file
         self.past_bets = self.data_loader.past_bets
-        self.pending_bets = self.data_loader.get_new_bets()
+        self.data_loader.get_new_bets()
+        self.pending_bets = self.data_loader.pending_bets
         self.placed_bets = self.data_loader.placed_bets
-        
+        self.failed_bets = self.data_loader.failed_bets
+        load_dotenv()
+        self.username = os.getenv("TOTO_USERNAME")
+        self.password = os.getenv("TOTO_PASSWORD")
+          
     def _place_bet(self, page, bet):
         page.fill("[data-testid='search-field']", f"{bet.home_team} vs {bet.away_team}")
         time.sleep(5)
@@ -74,16 +82,55 @@ class Executor:
             stake_input.fill(str(bet.risk))
         except Exception as e:
             print(f"Skipping bet on {bet.home_team} vs {bet.away_team}")
+            print("Moving bet to failed bets, check log for further details.")
+            self.data_loader.add_to_log(
+                f"Skipping bet on {bet.home_team} vs {bet.away_team}. Coudn't find stake input. Error: {e}",
+                bet.strategy)
+            self.data_loader.move_failed_bet(bet)
             return
 
         time.sleep(1)
 
         ok_button = page.locator("button:has-text('Plaats weddenschap')")
         ok_button.click()
-
+        
+        bet.placed = True
+        
+        self.data_loader.move_placed_bet(bet)
+        
+        self.data_loader.add_to_log(
+            f"Placed bet succesfully on {bet.home_team} vs {bet.away_team} for {bet.risk} at odds {bet.odds} with a win rate of {bet.win_rate} and an EV of {bet.ev}.",
+            bet.strategy
+        )
         time.sleep(2)
         
     def place_bets(self):
         p, browser, context, page = self.browser_mgr._initialise_browser("https://sport.toto.nl/")
         page.click("text=AKKOORD")
-        self.browser_mgr._login(page, "username", "password")
+        self.browser_mgr._login(page, self.username, self.password)
+        
+        page.mouse.click(10, 10)
+        
+        if not self.pending_bets.empty:
+            for idx, row in self.pending_bets.iterrows():
+                bet = self.data_loader.get_pending_bet(row)
+                try:
+                    self._place_bet(page, bet)
+                except Exception as e:
+                    print(f"Error placing bet: {e}")
+                    self.data_loader.add_to_log(
+                        f"Error placing bet on {bet.home_team} vs {bet.away_team}. Error: {e}",
+                        bet.strategy
+                    )
+                    self.data_loader.move_failed_bet(bet)
+                    continue
+            
+    
+if __name__ == "__main__":
+    executor = Executor("data", "config.yaml")
+    print(executor.pending_bets)
+    #executor.get_new_bets()
+    #executor.update_past_bets()
+    #executor.update_placed_bets()
+        
+        

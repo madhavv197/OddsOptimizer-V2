@@ -12,6 +12,7 @@ class Bet:
     ev: float
     strategy: str
     placed: bool = False
+    search_query: Optional[str] = None
     home_team: Optional[str] = None
     away_team: Optional[str] = None
     risk: Optional[float] = 0

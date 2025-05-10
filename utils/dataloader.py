@@ -14,10 +14,11 @@ class DataLoader:
         self.past_bets = pd.read_csv(f"{data_dir}/past_bets.csv")
         self.pending_bets = None
         self.placed_bets = pd.read_csv(f"{data_dir}/placed_bets.csv")
-        # self.failed_bets = pd.read_csv(f"{data_dir}/failed_bets.csv")
+        self.failed_bets = pd.read_csv(f"{data_dir}/failed_bets.csv")
         self.session_file = f"{data_dir}/session_cookies.json"
         self.browser_mgr = BroswerManager(data_dir, config_path)
         self.config_mgr = ConfigManager(config_path)
+        self.log_dir = self.data_dir / "logs"
 
     def _get_best_match(self, name, choices, threshold=70):
         best_match, score = process.extractOne(name, choices)
@@ -134,7 +135,8 @@ class DataLoader:
             bet_team, bet_odds, bet_prob = side_map[side]
             
             bets.append({
-                "match_id": f"{home_team} vs {away_team}",
+                "match_id": f"{bet_team}_{match_date}",
+                "search_query": f"{home_team} vs {away_team}",
                 "home_team": home_team,
                 "away_team": away_team,
                 "team": bet_team,
@@ -165,9 +167,38 @@ class DataLoader:
         
         
     def move_failed_bet(self, bet):
-        self.pending_bets.drop(self.pending_bets[self.pending_bets["match_id"] == bet.match_id].index, inplace=True)
-        self.failed_bets = pd.concat([self.failed_bets, pd.DataFrame([bet.__dict__])], ignore_index=True)
+        self.failed_bets.loc[len(self.failed_bets)] = self._get_bet_attrs(bet)
+        
+    def move_placed_bet(self, bet):
+        self.placed_bets.loc[len(self.placed_bets)] = self._get_bet_attrs(bet)    
+        
+    def get_pending_bet(self, row):
+        bet = models.Bet(
+            match_id=row["match_id"],
+            home_team=row["home_team"],
+            away_team=row["away_team"],
+            search_query=row["search_query"],
+            team=row["team"],
+            side=row["side"],
+            odds=row["odds"],
+            win_rate=row["win_rate"],
+            ev=row["ev"],
+            risk=row["risk"],
+            strategy=row["strategy"],
+            placed=row["placed"],
+            timestamp=row["timestamp"],
+            hit=row["hit"],
+            payout=row["payout"],
+            profit=row["profit"]
+        )
+        return bet
     
+    def _get_bet_attrs(self, bet, cols = ["match_id", "team", "side", "odds", "win_rate", "ev", "risk", "strategy", "placed", "timestamp", "hit", "payout", "profit"]):
+        return {k: getattr(bet, k, None) for k in cols}
+    
+    def add_to_log(self, message):
+        with open(self.data_dir / f"log_session_{datetime.now()}.txt", "w") as f:
+            f.write(f"{datetime.now()}: {message}\n")
 
 if __name__ == "__main__":
     data_dir = Path(__file__).resolve().parent.parent / "data"
