@@ -20,3 +20,4 @@ class Bet:
     hit: Optional[bool] = None
     payout: Optional[float] = None
     profit: Optional[float] = None
+    outcome: Optional[str] = None

@@ -6,6 +6,7 @@ from utils.browser_manager import BroswerManager
 from utils.config_manager import ConfigManager
 from engine import models
 from thefuzz import process
+import os
 
 
 class DataLoader:
@@ -18,7 +19,11 @@ class DataLoader:
         self.session_file = f"{data_dir}/session_cookies.json"
         self.browser_mgr = BroswerManager(data_dir, config_path)
         self.config_mgr = ConfigManager(config_path)
-        self.log_dir = self.data_dir / "logs"
+        logs_path = self.data_dir / "logs"
+        os.makedirs(logs_path, exist_ok=True)
+        self.log_file = logs_path / f"session_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+        with open(self.log_file, 'w') as f:
+            f.write("Session log started.\n")
 
     def _get_best_match(self, name, choices, threshold=70):
         best_match, score = process.extractOne(name, choices)
@@ -29,7 +34,6 @@ class DataLoader:
         rows_to_add = []
         rows_to_remove = []
         for i, row in self.placed_bets.iterrows():
-            print(row)
             bet = models.Bet(
                 match_id=row["match_id"],
                 team=row["team"],
@@ -46,8 +50,9 @@ class DataLoader:
                 profit=row["profit"]
             )
             for match in past_matches:
-                if bet.timestamp == match["date"] and (bet.team == match["home_team"] or bet.team == match["away_team"]):
+                if bet.timestamp == match["date"] and (self.config_mgr.get_reverse_translation(bet.team) == match["home_team"] or self.config_mgr.get_reverse_translation(bet.team) == match["away_team"]):
                     bet.hit = True if match["outcome"] == bet.side else False
+                    bet.outcome = match["outcome"]
                     bet.payout = bet.risk * bet.odds if bet.hit else -bet.risk
                     bet.profit = bet.risk * (bet.odds - 1) if bet.hit else -bet.risk 
                     rows_to_remove.append(i)
@@ -62,6 +67,7 @@ class DataLoader:
                         "strategy": bet.strategy,
                         "placed": bet.placed,
                         "timestamp": bet.timestamp,
+                        "outcome": bet.outcome,
                         "hit": bet.hit,
                         "payout": bet.payout,
                         "profit": bet.profit
@@ -70,8 +76,9 @@ class DataLoader:
         self.placed_bets.drop(rows_to_remove, inplace=True)
         new_bets = pd.DataFrame(rows_to_add)
         self.past_bets = pd.concat([self.past_bets, new_bets], ignore_index=True)   
-        print(self.placed_bets)
-        print(self.past_bets)
+        # print(self.placed_bets)
+        # print(self.past_bets
+        self.add_to_log(f"Resolved {len(rows_to_add)} past bets.")
 
     def get_new_bets(self):
         future_matches = self.browser_mgr.get_future_matches()
@@ -100,6 +107,7 @@ class DataLoader:
             home_team = self.config_mgr.get_translation(match["home_team"])
             away_team = self.config_mgr.get_translation(match["away_team"])
             match_date = match["date"]
+
             home_win_prob = match["home_win_prob"]
             away_win_prob = match["away_win_prob"]
             draw_prob = match["draw_prob"]
@@ -134,6 +142,9 @@ class DataLoader:
             }
             bet_team, bet_odds, bet_prob = side_map[side]
             
+            if f"{bet_team}_{match_date}" in self.placed_bets["match_id"].values:
+                continue
+            
             bets.append({
                 "match_id": f"{bet_team}_{match_date}",
                 "search_query": f"{home_team} vs {away_team}",
@@ -143,7 +154,7 @@ class DataLoader:
                 "side": side,
                 "odds": bet_odds,
                 "win_rate": bet_prob,
-                "ev": ev,
+                "ev": round(ev, 2),
                 "strategy": strategy,
                 "placed": False,
                 "risk": None,
@@ -152,11 +163,19 @@ class DataLoader:
                 "payout": None,
                 "profit": None,
             })
+            
+        
         self.pending_bets = pd.DataFrame(bets)
         
         self.pending_bets["risk"] = 1 + self.pending_bets["ev"] * beta
         
-        self.pending_bets["risk"] = (weekly_exposure*initial_bankroll)*(self.pending_bets["risk"]/self.pending_bets["risk"].sum())
+        self.pending_bets["risk"] = (weekly_exposure*initial_bankroll)*(self.pending_bets["risk"]/self.pending_bets["risk"].sum()) if len(self.pending_bets) > 5  else (len(self.pending_bets)/5) * (weekly_exposure*initial_bankroll) / len(self.pending_bets)
+        
+        self.pending_bets["risk"] = np.where(self.pending_bets["risk"] < 0.1, 0.1, self.pending_bets["risk"])
+        
+        # ensure native float dtype and keep two decimals
+        self.pending_bets["risk"] = pd.to_numeric(self.pending_bets["risk"], errors="coerce").astype(float).round(2)
+        # create a string version using Dutch decimal comma for Playwright
         
         return self.pending_bets
         
@@ -197,7 +216,7 @@ class DataLoader:
         return {k: getattr(bet, k, None) for k in cols}
     
     def add_to_log(self, message):
-        with open(self.data_dir / f"log_session_{datetime.now()}.txt", "w") as f:
+        with open(self.log_file, 'a') as f:
             f.write(f"{datetime.now()}: {message}\n")
 
 if __name__ == "__main__":

@@ -1,7 +1,17 @@
 # config.yaml
 
+#  "epl": "https://sport.toto.nl/wedden/sport/567/engeland-premier-league/wedstrijden"
+#  "leo": "https://sport.toto.nl/wedden/sport/578/engeland-league-1/wedstrijden"
+#  "let": "https://sport.toto.nl/wedden/sport/688/engeland-league-2/wedstrijden"
+#  "cha": "https://sport.toto.nl/wedden/sport/691/engeland-championship/wedstrijden"
+#  "sea": "https://sport.toto.nl/wedden/sport/644/italie-serie-a/wedstrijden"
+#  "ll": "https://sport.toto.nl/wedden/sport/570/spanje-laliga/wedstrijden"
+#  "li1": "https://sport.toto.nl/wedden/sport/911/frankrijk-ligue-1/wedstrijden"
+#  "bun": "https://sport.toto.nl/wedden/sport/577/duitsland-bundesliga/wedstrijden"
+
 leagues:
-  epl: "https://sport.toto.nl/wedden/sport/567/engeland-premier-league/wedstrijden"
+  "fcw": "https://sport.toto.nl/wedden/sport/9403/wk-clubs/wedstrijden"
+  "cgc": https://sport.toto.nl/wedden/sport/12940/concacaf-gold-cup/wedstrijden
 
 
 settings:

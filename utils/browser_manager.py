@@ -18,7 +18,11 @@ class BroswerManager():
     def __init__(self, data_dir, config_path) -> None:
         self.session_file = f"{data_dir}/session_cookies.json"
         self.config_mgr = ConfigManager(config_path)
-
+        self.p = None
+        self.browser = None
+        self.context = None
+        self.page = None
+        
     def _save_cookies(self, page):
         cookies = page.context.cookies()
         with open(self.session_file, 'w') as f:
@@ -30,7 +34,7 @@ class BroswerManager():
                 cookies = json.load(f)
             page.context.add_cookies(cookies)
 
-    def _initialise_browser(self, url, odds=False, execute=False):
+    def _prepare_page(self, url, odds=False, execute=False):
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=False)
             context = browser.new_context()
@@ -162,6 +166,7 @@ class BroswerManager():
 
         # Extract odds
         odds = match.find_all("span", class_=re.compile(r"outcomePriceCommon-0-3-\d+"))
+        # print(odds)
         try:
             win_odds = float(odds[0].text.strip().replace(",", "."))
         except Exception as e:
@@ -190,7 +195,7 @@ class BroswerManager():
         }
         
     def get_future_matches(self):
-        _, match_cards = self._initialise_browser(
+        _, match_cards = self._prepare_page(
             "https://dataviz.theanalyst.com/opta-football-predictions/"
         )
         future_matches = []
@@ -223,7 +228,7 @@ class BroswerManager():
         return future_matches
     
     def get_past_matches(self):
-        _, match_cards = self._initialise_browser("https://dataviz.theanalyst.com/opta-football-predictions/")
+        _, match_cards = self._prepare_page("https://dataviz.theanalyst.com/opta-football-predictions/")
         past_matches = []
         for match in match_cards:
             meta_div = match.find("div", class_="_match-card-meta_1u4oy_18")
@@ -254,10 +259,10 @@ class BroswerManager():
     
     def get_odds(self):
         leagues = self.config_mgr.get_leagues()
-        print(leagues)
+        # print(leagues)
         extracted_matches = []
         for prefix, url in leagues.items():
-            soup, _ = self._initialise_browser(url, odds=True)
+            soup, _ = self._prepare_page(url, odds=True)
             match_cards = soup.find_all("div", class_=re.compile(r"eventListItemContent-0-3-\d+"))
 
             for match in match_cards:
@@ -282,8 +287,20 @@ class BroswerManager():
 
         for i in range(5, 10):
             time.sleep(rand.uniform(1.5, 2))
-        
-        print("\n✅ Login successful.")
+    
+    def start_page(self):
+        self.p = sync_playwright().start()
+        self.browser = self.p.chromium.launch(headless=False)
+        self.context = self.browser.new_context()
+        self.page = self.context.new_page()
+        self._load_cookies(self.page)
+        return self.page
+
+    def close_page(self):
+        if self.browser:
+            self.browser.close()
+        if self.p:
+            self.p.stop()
     
     
     
