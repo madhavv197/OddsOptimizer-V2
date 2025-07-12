@@ -12,12 +12,14 @@
 leagues:
   "fcw": "https://sport.toto.nl/wedden/sport/9403/wk-clubs/wedstrijden"
   "cgc": https://sport.toto.nl/wedden/sport/12940/concacaf-gold-cup/wedstrijden
+  "mls": https://sport.toto.nl/wedden/sport/596/vs-major-league-soccer/wedstrijden
+  "uwc": "https://sport.toto.nl/wedden/sport/12767/ek-vrouwen/wedstrijden"
 
 
 settings:
   ev_threshold: 0.1
   beta: 2
   initial_bankroll: 100
-  weekly_exposure: 0.2
-  strategy: "EV1R20B2W"
+  weekly_exposure: 0.1
+  strategy: "EV1R10B2W"
   simulate_only: false

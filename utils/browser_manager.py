@@ -94,11 +94,22 @@ class BroswerManager():
         # Home and Draw
         home_team = rows[0].find("span").text.strip()
         tds_home = rows[0].find_all("td")
-
         if len(tds_home) == 3:  # No PR case (e.g., Nations League)
+            #print(tds_home[0])
+            #print(tds_home[1].text.strip())
+            #print(tds_home[2])
             home_win_prob = tds_home[1].text.strip()
+            #print(home_win_prob)
             draw_td = tds_home[2]
+            draw_prob = next(
+                (div.text.strip() for div in draw_td.find_all("div") if "%" in div.text),
+                "Unknown"
+            )
+            #print(draw_td)
+        elif len(tds_home) < 2:
+            return None
         else:  # PR exists (e.g., Let and Leo)
+            #print(tds_home)
             home_pr = tds_home[1].text.strip()
             try:
                 home_win_prob = tds_home[2].text.strip()
@@ -106,13 +117,13 @@ class BroswerManager():
                 home_win_prob = "0%"
             try:
                 draw_td = tds_home[3]
+                draw_prob = next(
+                (div.text.strip() for div in draw_td.find_all("div") if "%" in div.text),
+                "Unknown"
+            )
             except:
                 draw_td = None
-        
-        if draw_td:
-            draw_divs = draw_td.find_all("div")
-            draw_prob = draw_divs[2].text.strip() if len(draw_divs) > 1 else "Unknown"
-
+                
         # Away team
         away_team = rows[1].find("span").text.strip()
         tds_away = rows[1].find_all("td")
@@ -142,9 +153,12 @@ class BroswerManager():
 
             home_team = tds_home[0].text.strip()
             away_team = tds_away[0].text.strip()
-
-            home_goals = int(tds_home[1].text.strip())
-            away_goals = int(tds_away[1].text.strip())
+            #print(tds_home[1].text.strip())
+            raw_string_home = tds_home[1].text.strip()
+            raw_string_away = tds_away[1].text.strip()
+            #print(raw_string_home.split(" ")[0].strip())
+            home_goals = int(raw_string_home.split(" ")[0].strip())
+            away_goals = int(raw_string_away.split(" ")[0].strip())
 
             outcome = "draw" if home_goals == away_goals else "home" if home_goals > away_goals else "away"
             
@@ -166,12 +180,11 @@ class BroswerManager():
 
         # Extract odds
         odds = match.find_all("span", class_=re.compile(r"outcomePriceCommon-0-3-\d+"))
-        # print(odds)
+        #print(odds)
         try:
             win_odds = float(odds[0].text.strip().replace(",", "."))
         except Exception as e:
             print(f"Error parsing win odds: {e}")
-            exit()
             win_odds = 0.0
         try:
             draw_odds = float(odds[1].text.strip().replace(",", "."))
@@ -217,6 +230,7 @@ class BroswerManager():
                 continue
 
             prob_data = self._parse_match_probs(tbody)
+            #print(prob_data)
             if not prob_data:
                 continue
 

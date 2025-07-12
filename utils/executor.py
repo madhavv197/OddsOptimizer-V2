@@ -23,6 +23,8 @@ class Executor:
         self.password = os.getenv("TOTO_PASSWORD")
           
     def _place_bet(self, page, bet):
+        #print(bet)
+        #print(DataLoader.pending_bets)
         page.fill("[data-testid='search-field']", f"{bet.home_team} vs {bet.away_team}")
         time.sleep(5)
 
@@ -120,6 +122,7 @@ class Executor:
         time.sleep(2)
         
     def place_bets(self, pending_bets):
+        #print(self.data_loader.pending_bets)
         page = self.browser_mgr.start_page()
         try:
             page.goto("https://sport.toto.nl/")

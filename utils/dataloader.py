@@ -19,6 +19,7 @@ class DataLoader:
         self.session_file = f"{data_dir}/session_cookies.json"
         self.browser_mgr = BroswerManager(data_dir, config_path)
         self.config_mgr = ConfigManager(config_path)
+        self.new_placed_bets = []
         logs_path = self.data_dir / "logs"
         os.makedirs(logs_path, exist_ok=True)
         self.log_file = logs_path / f"session_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
@@ -137,7 +138,7 @@ class DataLoader:
             
             side_map = {
                 "home": (home_team, win_odds, home_win_prob),
-                "draw": ("draw", draw_odds, draw_prob),
+                "draw": (f"{home_team}_{away_team}_draw", draw_odds, draw_prob),
                 "away": (away_team, loss_odds, away_win_prob)
             }
             bet_team, bet_odds, bet_prob = side_map[side]
@@ -173,13 +174,14 @@ class DataLoader:
         
         self.pending_bets["risk"] = np.where(self.pending_bets["risk"] < 0.1, 0.1, self.pending_bets["risk"])
         
-        # ensure native float dtype and keep two decimals
         self.pending_bets["risk"] = pd.to_numeric(self.pending_bets["risk"], errors="coerce").astype(float).round(2)
-        # create a string version using Dutch decimal comma for Playwright
         
         return self.pending_bets
         
     def save_all(self):
+        #print(self.placed_bets.tail())
+        self.new_placed_bets_df = pd.DataFrame(self.new_placed_bets)
+        self.placed_bets = pd.concat([self.placed_bets, self.new_placed_bets_df], ignore_index=True)
         self.placed_bets.to_csv(self.data_dir / "placed_bets.csv", index=False)
         self.past_bets.to_csv(self.data_dir / "past_bets.csv", index=False)
         self.failed_bets.to_csv(self.data_dir / "failed_bets.csv", index=False)
@@ -189,9 +191,12 @@ class DataLoader:
         self.failed_bets.loc[len(self.failed_bets)] = self._get_bet_attrs(bet)
         
     def move_placed_bet(self, bet):
-        self.placed_bets.loc[len(self.placed_bets)] = self._get_bet_attrs(bet)    
+        #print(f"Adding: {bet.match_id}")
+        self.new_placed_bets.append(self._get_bet_attrs(bet))
+        #print(self.new_placed_bets)
         
     def get_pending_bet(self, row):
+        #print(row)
         bet = models.Bet(
             match_id=row["match_id"],
             home_team=row["home_team"],
